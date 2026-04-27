@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drag-and-Drop: Chemische Reaktionen</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172026;
+      --muted: #5c6870;
+      --paper: #f7f5ef;
+      --panel: #ffffff;
+      --line: #d9ddd4;
+      --brand: #0d6b5f;
+      --brand-dark: #084d45;
+      --accent: #b35c18;
+      --ok: #147d45;
+      --ok-bg: #dff3e7;
+      --bad: #b42318;
+      --bad-bg: #fde2dd;
+      --focus: #1d70b8;
+      --shadow: 0 12px 28px rgba(22, 31, 36, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 15% 12%, rgba(13, 107, 95, 0.12), transparent 26rem),
+        linear-gradient(180deg, #fbfaf6 0%, var(--paper) 100%);
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.45;
+    }
+
+    .page {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 36px;
+    }
+
+    header {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 2.6vw, 2.45rem);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .intro {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0 22px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 7px;
+      padding: 11px 16px;
+      color: #fff;
+      background: var(--brand);
+      font: 700 0.98rem Arial, Helvetica, sans-serif;
+      cursor: pointer;
+      min-height: 44px;
+    }
+
+    button:hover {
+      background: var(--brand-dark);
+    }
+
+    button:focus-visible,
+    .term:focus-visible,
+    .dropzone:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .secondary {
+      color: var(--brand-dark);
+      background: #e6f0ed;
+    }
+
+    .secondary:hover {
+      background: #d7e7e2;
+    }
+
+    .result {
+      min-height: 26px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(230px, 310px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .bank,
+    .definitions {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .bank {
+      position: sticky;
+      top: 18px;
+      padding: 14px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 1.05rem;
+      letter-spacing: 0;
+    }
+
+    .term-list {
+      display: grid;
+      gap: 8px;
+      min-height: 80px;
+    }
+
+    .term {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      width: 100%;
+      border: 1px solid #a7c9c1;
+      border-radius: 7px;
+      padding: 9px 10px;
+      background: #f8fffd;
+      color: #103f39;
+      font-weight: 700;
+      text-align: center;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .term:active {
+      cursor: grabbing;
+    }
+
+    .term.dragging {
+      opacity: 0.55;
+      transform: scale(0.98);
+    }
+
+    .term.pointer-dragging {
+      opacity: 0;
+    }
+
+    .term.selected {
+      border-color: var(--accent);
+      background: #fff1e7;
+    }
+
+    .drag-ghost {
+      position: fixed;
+      z-index: 1000;
+      width: min(280px, calc(100vw - 32px));
+      pointer-events: none;
+      box-shadow: 0 16px 30px rgba(22, 31, 36, 0.2);
+      transform: rotate(-1deg);
+    }
+
+    .definitions {
+      overflow: hidden;
+    }
+
+    .definition-row {
+      display: grid;
+      grid-template-columns: minmax(210px, 34%) minmax(0, 1fr);
+      gap: 12px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .definition-row:last-child {
+      border-bottom: 0;
+    }
+
+    .definition-text {
+      display: flex;
+      align-items: center;
+      margin: 0;
+      color: #26343b;
+      font-size: 0.98rem;
+    }
+
+    .dropzone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      border: 2px dashed #aeb8b2;
+      border-radius: 7px;
+      padding: 6px;
+      background: #fbfbf8;
+      transition: background 0.16s ease, border-color 0.16s ease;
+    }
+
+    .dropzone.empty::before {
+      content: "Begriff hier ablegen";
+      color: #7a858b;
+      font-weight: 700;
+    }
+
+    .dropzone.over {
+      border-color: var(--accent);
+      background: #fff1e7;
+    }
+
+    .bank.over {
+      border-color: var(--accent);
+      background: #fffaf5;
+    }
+
+    .dropzone.correct {
+      border-color: var(--ok);
+      background: var(--ok-bg);
+    }
+
+    .dropzone.incorrect {
+      border-color: var(--bad);
+      background: var(--bad-bg);
+    }
+
+    .dropzone.correct .term {
+      border-color: var(--ok);
+      background: #f4fff7;
+      color: #0c5f34;
+    }
+
+    .dropzone.incorrect .term {
+      border-color: var(--bad);
+      background: #fff7f5;
+      color: #8f1f16;
+    }
+
+    @media (max-width: 830px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .bank {
+        position: static;
+      }
+
+      .definition-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .page {
+        width: min(100% - 20px, 1180px);
+        padding-top: 18px;
+      }
+
+      .toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1>Begriffe zu chemischen Reaktionen zuordnen</h1>
+      <p class="intro">Ziehe jeden Fachbegriff zur passenden Definition. Danach kannst du deine Zuordnungen überprüfen.</p>
+    </header>
+
+    <div class="toolbar" aria-label="Aktionen">
+      <button id="checkButton" type="button">Überprüfen</button>
+      <button id="resetButton" class="secondary" type="button">Zurücksetzen</button>
+      <div id="result" class="result" aria-live="polite"></div>
+    </div>
+
+    <section class="workspace">
+      <aside class="bank" aria-label="Fachbegriffe">
+        <h2>Fachbegriffe</h2>
+        <div id="termBank" class="term-list"></div>
+      </aside>
+
+      <section class="definitions" aria-label="Definitionen">
+        <div id="definitionList"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const items = [
+      {
+        term: "Chemische Reaktion",
+        definition: "Vorgang, bei dem aus Stoffen neue Stoffe mit meistens anderen Eigenschaften entstehen."
+      },
+      {
+        term: "Edukt, Ausgangsstoff",
+        definition: "Stoff, der zu Beginn einer chemischen Reaktion vorhanden ist."
+      },
+      {
+        term: "Glimmspanprobe",
+        definition: "Nachweisreaktion, mit der Sauerstoff nachgewiesen werden kann."
+      },
+      {
+        term: "Kalkwasserprobe",
+        definition: "Nachweisreaktion, mit der Kohlenstoffdioxid nachgewiesen wird."
+      },
+      {
+        term: "Kohlenstoffdioxid",
+        definition: "Gas, das bei vielen Verbrennungen entsteht."
+      },
+      {
+        term: "Nachweisreaktion",
+        definition: "Reaktion, mit der ein bestimmter Stoff erkannt wird."
+      },
+      {
+        term: "Oxidation",
+        definition: "Chemische Reaktion mit Sauerstoff."
+      },
+      {
+        term: "Produkt",
+        definition: "Stoff, der bei einer chemischen Reaktion entsteht."
+      },
+      {
+        term: "Reaktionsgleichung",
+        definition: "Darstellung einer chemischen Reaktion durch chemische Formeln."
+      },
+      {
+        term: "Reaktionspfeil",
+        definition: "Zeichen, das \"reagiert zu\" bedeutet."
+      },
+      {
+        term: "Vermutung",
+        definition: "Begründete Vorhersage, was bei einem Experiment passieren könnte."
+      },
+      {
+        term: "Wortgleichung",
+        definition: "Einfache Reaktionsgleichung mit Wörtern statt Formeln."
+      }
+    ];
+
+    const termBank = document.querySelector("#termBank");
+    const definitionList = document.querySelector("#definitionList");
+    const checkButton = document.querySelector("#checkButton");
+    const resetButton = document.querySelector("#resetButton");
+    const result = document.querySelector("#result");
+
+    let draggedTerm = null;
+    let pointerDrag = null;
+
+    function shuffle(list) {
+      const copy = [...list];
+      for (let index = copy.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1));
+        [copy[index], copy[randomIndex]] = [copy[randomIndex], copy[index]];
+      }
+      return copy;
+    }
+
+    function makeTermCard(item) {
+      const card = document.createElement("div");
+      card.className = "term";
+      card.draggable = true;
+      card.tabIndex = 0;
+      card.textContent = item.term;
+      card.dataset.term = item.term;
+
+      card.addEventListener("pointerdown", startPointerDrag);
+
+      card.addEventListener("dragstart", (event) => {
+        if (pointerDrag) {
+          event.preventDefault();
+          return;
+        }
+        draggedTerm = card;
+        card.classList.add("dragging");
+        event.dataTransfer.setData("text/plain", item.term);
+      });
+
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        draggedTerm = null;
+      });
+
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          selectForKeyboard(card);
+        }
+      });
+
+      return card;
+    }
+
+    function makeDropzone(item) {
+      const zone = document.createElement("div");
+      zone.className = "dropzone empty";
+      zone.tabIndex = 0;
+      zone.dataset.answer = item.term;
+      zone.setAttribute("aria-label", "Ablagefeld für " + item.definition);
+
+      zone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        zone.classList.add("over");
+      });
+
+      zone.addEventListener("dragleave", () => {
+        zone.classList.remove("over");
+      });
+
+      zone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        zone.classList.remove("over");
+        if (draggedTerm) {
+          placeTerm(zone, draggedTerm);
+        }
+      });
+
+      zone.addEventListener("keydown", (event) => {
+        const selected = document.querySelector(".term.selected");
+        if ((event.key === "Enter" || event.key === " ") && selected) {
+          event.preventDefault();
+          placeTerm(zone, selected);
+          selected.classList.remove("selected");
+        }
+      });
+
+      return zone;
+    }
+
+    function startPointerDrag(event) {
+      if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) {
+        return;
+      }
+
+      const card = event.currentTarget;
+      const rect = card.getBoundingClientRect();
+      const ghost = card.cloneNode(true);
+
+      event.preventDefault();
+      card.setPointerCapture(event.pointerId);
+      clearFeedback();
+
+      ghost.classList.add("drag-ghost");
+      ghost.classList.remove("selected", "dragging", "pointer-dragging");
+      document.body.appendChild(ghost);
+
+      pointerDrag = {
+        card,
+        ghost,
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+        currentTarget: null
+      };
+
+      card.classList.add("pointer-dragging");
+      moveGhost(event.clientX, event.clientY);
+      updatePointerTarget(event.clientX, event.clientY);
+
+      card.addEventListener("pointermove", movePointerDrag);
+      card.addEventListener("pointerup", endPointerDrag);
+      card.addEventListener("pointercancel", cancelPointerDrag);
+    }
+
+    function movePointerDrag(event) {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) {
+        return;
+      }
+
+      event.preventDefault();
+      moveGhost(event.clientX, event.clientY);
+      updatePointerTarget(event.clientX, event.clientY);
+    }
+
+    function endPointerDrag(event) {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) {
+        return;
+      }
+
+      event.preventDefault();
+      const target = pointerDrag.currentTarget;
+      const card = pointerDrag.card;
+
+      cleanupPointerDrag();
+
+      if (target && target.classList.contains("dropzone")) {
+        placeTerm(target, card);
+      } else if (target && target.classList.contains("bank")) {
+        returnTermToBank(card);
+      }
+    }
+
+    function cancelPointerDrag(event) {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) {
+        return;
+      }
+
+      cleanupPointerDrag();
+    }
+
+    function moveGhost(clientX, clientY) {
+      pointerDrag.ghost.style.left = clientX - pointerDrag.offsetX + "px";
+      pointerDrag.ghost.style.top = clientY - pointerDrag.offsetY + "px";
+    }
+
+    function updatePointerTarget(clientX, clientY) {
+      document.querySelectorAll(".dropzone.over, .bank.over").forEach((element) => {
+        element.classList.remove("over");
+      });
+
+      pointerDrag.ghost.style.display = "none";
+      const element = document.elementFromPoint(clientX, clientY);
+      pointerDrag.ghost.style.display = "";
+
+      const dropzone = element ? element.closest(".dropzone") : null;
+      const bank = element ? element.closest(".bank") : null;
+      const target = dropzone || bank;
+
+      pointerDrag.currentTarget = target;
+      if (target) {
+        target.classList.add("over");
+      }
+    }
+
+    function cleanupPointerDrag() {
+      const { card, ghost, pointerId } = pointerDrag;
+
+      document.querySelectorAll(".dropzone.over, .bank.over").forEach((element) => {
+        element.classList.remove("over");
+      });
+
+      card.classList.remove("pointer-dragging");
+      card.removeEventListener("pointermove", movePointerDrag);
+      card.removeEventListener("pointerup", endPointerDrag);
+      card.removeEventListener("pointercancel", cancelPointerDrag);
+
+      if (card.hasPointerCapture(pointerId)) {
+        card.releasePointerCapture(pointerId);
+      }
+
+      ghost.remove();
+      pointerDrag = null;
+    }
+
+    function selectForKeyboard(card) {
+      document.querySelectorAll(".term.selected").forEach((term) => {
+        term.classList.remove("selected");
+      });
+      card.classList.add("selected");
+      result.textContent = "Wähle jetzt ein Ablagefeld aus und drücke Enter.";
+    }
+
+    function placeTerm(zone, card) {
+      clearFeedback();
+
+      if (zone.firstElementChild) {
+        termBank.appendChild(zone.firstElementChild);
+      }
+
+      zone.appendChild(card);
+      updateEmptyDropzones();
+      result.textContent = "";
+    }
+
+    function returnTermToBank(card) {
+      clearFeedback();
+      termBank.appendChild(card);
+      updateEmptyDropzones();
+      result.textContent = "";
+    }
+
+    function updateEmptyDropzones() {
+      document.querySelectorAll(".dropzone").forEach((zone) => {
+        zone.classList.toggle("empty", !zone.querySelector(".term"));
+      });
+    }
+
+    function clearFeedback() {
+      document.querySelectorAll(".dropzone").forEach((zone) => {
+        zone.classList.remove("correct", "incorrect");
+      });
+    }
+
+    function render() {
+      termBank.innerHTML = "";
+      definitionList.innerHTML = "";
+      result.textContent = "";
+
+      shuffle(items).forEach((item) => {
+        termBank.appendChild(makeTermCard(item));
+      });
+
+      shuffle(items).forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "definition-row";
+
+        const zone = makeDropzone(item);
+        const definition = document.createElement("p");
+        definition.className = "definition-text";
+        definition.textContent = item.definition;
+
+        row.append(zone, definition);
+        definitionList.appendChild(row);
+      });
+    }
+
+    function checkAnswers() {
+      let correct = 0;
+      let answered = 0;
+
+      document.querySelectorAll(".dropzone").forEach((zone) => {
+        const card = zone.querySelector(".term");
+        zone.classList.remove("correct", "incorrect");
+
+        if (!card) {
+          zone.classList.add("incorrect");
+          return;
+        }
+
+        answered += 1;
+        if (card.dataset.term === zone.dataset.answer) {
+          correct += 1;
+          zone.classList.add("correct");
+        } else {
+          zone.classList.add("incorrect");
+        }
+      });
+
+      result.textContent = correct + " von " + items.length + " Zuordnungen richtig" +
+        (answered < items.length ? " (" + (items.length - answered) + " fehlen noch)." : ".");
+    }
+
+    termBank.addEventListener("dragover", (event) => {
+      event.preventDefault();
+    });
+
+    termBank.addEventListener("drop", (event) => {
+      event.preventDefault();
+      if (draggedTerm) {
+        returnTermToBank(draggedTerm);
+      }
+    });
+
+    checkButton.addEventListener("click", checkAnswers);
+    resetButton.addEventListener("click", render);
+
+    render();
+  </script>
+</body>
+</html>

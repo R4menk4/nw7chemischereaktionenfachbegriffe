@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chemie-Memory: Chemische Reaktionen</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="lab-background" aria-hidden="true">
+    <span class="bubble bubble-one"></span>
+    <span class="bubble bubble-two"></span>
+    <span class="bubble bubble-three"></span>
+    <span class="atom-doodle"></span>
+  </div>
+
+  <main class="page-shell">
+    <header class="hero">
+      <section class="intro">
+        <p class="eyebrow">Naturwissenschaften / Chemie - Klasse 7</p>
+        <h1>Chemie-Memory: Chemische Reaktionen</h1>
+        <p class="instruction">
+          Finde immer den passenden Fachbegriff zur richtigen Erklärung. Klicke zwei Karten an und prüfe, ob sie zusammengehören.
+        </p>
+      </section>
+
+      <aside class="mascot-card" aria-label="Comic-Laborfigur">
+        <div class="speech-bubble">Bereit fürs Labor-Memory?</div>
+        <div class="chemist" aria-hidden="true">
+          <div class="chemist-hair"></div>
+          <div class="chemist-head">
+            <span class="eye eye-left"></span>
+            <span class="eye eye-right"></span>
+            <span class="smile"></span>
+          </div>
+          <div class="chemist-body">
+            <span class="coat-line"></span>
+            <span class="flask flask-left"></span>
+            <span class="flask flask-right"></span>
+          </div>
+        </div>
+      </aside>
+    </header>
+
+    <section class="start-screen" id="startScreen" aria-labelledby="modeTitle">
+      <div class="start-panel">
+        <p class="section-kicker">Wähle deinen Modus</p>
+        <h2 id="modeTitle">Wie viele Paare möchtest du spielen?</h2>
+        <div class="mode-grid">
+          <button class="mode-card mode-easy" type="button" data-pairs="6">
+            <span class="mode-name">Leicht</span>
+            <strong>6 Paare</strong>
+            <span class="mode-note">Gut zum Einstieg</span>
+          </button>
+          <button class="mode-card mode-medium" type="button" data-pairs="9">
+            <span class="mode-name">Mittel</span>
+            <strong>9 Paare</strong>
+            <span class="mode-note">Mehr Laborwissen</span>
+          </button>
+          <button class="mode-card mode-hard" type="button" data-pairs="12">
+            <span class="mode-name">Schwer</span>
+            <strong>12 Paare</strong>
+            <span class="mode-note">Alle Karten im Spiel</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="game-screen" id="gameScreen" hidden>
+      <section class="toolbar" aria-label="Spielstand">
+        <div class="score-pill">
+          <span class="score-label">Modus</span>
+          <strong id="modeOutput">Leicht</strong>
+        </div>
+        <div class="score-pill">
+          <span class="score-label">Versuche</span>
+          <strong id="attempts">0</strong>
+        </div>
+        <div class="score-pill">
+          <span class="score-label">Gefundene Paare</span>
+          <strong><span id="matches">0</span> / <span id="totalPairs">6</span></strong>
+        </div>
+        <button class="home-button" id="homeButton" type="button">Zur Startseite</button>
+        <button class="restart-button" id="restartButton" type="button">Neu starten</button>
+      </section>
+
+      <section class="message" id="message" aria-live="polite">
+        Viel Erfolg! Suche zuerst eine Karte mit Begriff und dann die passende Erklärung.
+      </section>
+
+      <section class="game-board" id="gameBoard" aria-label="Memory-Karten"></section>
+    </section>
+  </main>
+
+  <template id="cardTemplate">
+    <button class="memory-card" type="button">
+      <span class="card-inner">
+        <span class="card-face card-back" aria-hidden="true">
+          <span class="card-symbol">?</span>
+          <span class="test-tube">
+            <span class="liquid"></span>
+            <span class="tiny-bubble tiny-bubble-one"></span>
+            <span class="tiny-bubble tiny-bubble-two"></span>
+          </span>
+        </span>
+        <span class="card-face card-front">
+          <span class="card-type"></span>
+          <span class="card-text"></span>
+        </span>
+      </span>
+    </button>
+  </template>
+
+  <script src="script.js"></script>
+</body>
+</html>
