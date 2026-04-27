@@ -169,6 +169,24 @@
       transform: scale(0.98);
     }
 
+    .term.pointer-dragging {
+      opacity: 0;
+    }
+
+    .term.selected {
+      border-color: var(--accent);
+      background: #fff1e7;
+    }
+
+    .drag-ghost {
+      position: fixed;
+      z-index: 1000;
+      width: min(280px, calc(100vw - 32px));
+      pointer-events: none;
+      box-shadow: 0 16px 30px rgba(22, 31, 36, 0.2);
+      transform: rotate(-1deg);
+    }
+
     .definitions {
       overflow: hidden;
     }
@@ -215,6 +233,11 @@
     .dropzone.over {
       border-color: var(--accent);
       background: #fff1e7;
+    }
+
+    .bank.over {
+      border-color: var(--accent);
+      background: #fffaf5;
     }
 
     .dropzone.correct {
@@ -358,6 +381,7 @@
     const result = document.querySelector("#result");
 
     let draggedTerm = null;
+    let pointerDrag = null;
 
     function shuffle(list) {
       const copy = [...list];
@@ -376,7 +400,13 @@
       card.textContent = item.term;
       card.dataset.term = item.term;
 
+      card.addEventListener("pointerdown", startPointerDrag);
+
       card.addEventListener("dragstart", (event) => {
+        if (pointerDrag) {
+          event.preventDefault();
+          return;
+        }
         draggedTerm = card;
         card.classList.add("dragging");
         event.dataTransfer.setData("text/plain", item.term);
@@ -433,6 +463,121 @@
       return zone;
     }
 
+    function startPointerDrag(event) {
+      if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) {
+        return;
+      }
+
+      const card = event.currentTarget;
+      const rect = card.getBoundingClientRect();
+      const ghost = card.cloneNode(true);
+
+      event.preventDefault();
+      card.setPointerCapture(event.pointerId);
+      clearFeedback();
+
+      ghost.classList.add("drag-ghost");
+      ghost.classList.remove("selected", "dragging", "pointer-dragging");
+      document.body.appendChild(ghost);
+
+      pointerDrag = {
+        card,
+        ghost,
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+        currentTarget: null
+      };
+
+      card.classList.add("pointer-dragging");
+      moveGhost(event.clientX, event.clientY);
+      updatePointerTarget(event.clientX, event.clientY);
+
+      card.addEventListener("pointermove", movePointerDrag);
+      card.addEventListener("pointerup", endPointerDrag);
+      card.addEventListener("pointercancel", cancelPointerDrag);
+    }
+
+    function movePointerDrag(event) {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) {
+        return;
+      }
+
+      event.preventDefault();
+      moveGhost(event.clientX, event.clientY);
+      updatePointerTarget(event.clientX, event.clientY);
+    }
+
+    function endPointerDrag(event) {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) {
+        return;
+      }
+
+      event.preventDefault();
+      const target = pointerDrag.currentTarget;
+      const card = pointerDrag.card;
+
+      cleanupPointerDrag();
+
+      if (target && target.classList.contains("dropzone")) {
+        placeTerm(target, card);
+      } else if (target && target.classList.contains("bank")) {
+        returnTermToBank(card);
+      }
+    }
+
+    function cancelPointerDrag(event) {
+      if (!pointerDrag || event.pointerId !== pointerDrag.pointerId) {
+        return;
+      }
+
+      cleanupPointerDrag();
+    }
+
+    function moveGhost(clientX, clientY) {
+      pointerDrag.ghost.style.left = clientX - pointerDrag.offsetX + "px";
+      pointerDrag.ghost.style.top = clientY - pointerDrag.offsetY + "px";
+    }
+
+    function updatePointerTarget(clientX, clientY) {
+      document.querySelectorAll(".dropzone.over, .bank.over").forEach((element) => {
+        element.classList.remove("over");
+      });
+
+      pointerDrag.ghost.style.display = "none";
+      const element = document.elementFromPoint(clientX, clientY);
+      pointerDrag.ghost.style.display = "";
+
+      const dropzone = element ? element.closest(".dropzone") : null;
+      const bank = element ? element.closest(".bank") : null;
+      const target = dropzone || bank;
+
+      pointerDrag.currentTarget = target;
+      if (target) {
+        target.classList.add("over");
+      }
+    }
+
+    function cleanupPointerDrag() {
+      const { card, ghost, pointerId } = pointerDrag;
+
+      document.querySelectorAll(".dropzone.over, .bank.over").forEach((element) => {
+        element.classList.remove("over");
+      });
+
+      card.classList.remove("pointer-dragging");
+      card.removeEventListener("pointermove", movePointerDrag);
+      card.removeEventListener("pointerup", endPointerDrag);
+      card.removeEventListener("pointercancel", cancelPointerDrag);
+
+      if (card.hasPointerCapture(pointerId)) {
+        card.releasePointerCapture(pointerId);
+      }
+
+      ghost.remove();
+      pointerDrag = null;
+    }
+
     function selectForKeyboard(card) {
       document.querySelectorAll(".term.selected").forEach((term) => {
         term.classList.remove("selected");
@@ -449,8 +594,21 @@
       }
 
       zone.appendChild(card);
-      zone.classList.remove("empty");
+      updateEmptyDropzones();
       result.textContent = "";
+    }
+
+    function returnTermToBank(card) {
+      clearFeedback();
+      termBank.appendChild(card);
+      updateEmptyDropzones();
+      result.textContent = "";
+    }
+
+    function updateEmptyDropzones() {
+      document.querySelectorAll(".dropzone").forEach((zone) => {
+        zone.classList.toggle("empty", !zone.querySelector(".term"));
+      });
     }
 
     function clearFeedback() {
@@ -515,9 +673,7 @@
     termBank.addEventListener("drop", (event) => {
       event.preventDefault();
       if (draggedTerm) {
-        clearFeedback();
-        termBank.appendChild(draggedTerm);
-        result.textContent = "";
+        returnTermToBank(draggedTerm);
       }
     });
 
